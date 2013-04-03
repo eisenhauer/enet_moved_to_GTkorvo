@@ -251,8 +251,8 @@ typedef struct _ENetPeer
 { 
    ENetListNode  dispatchList;
    struct _ENetHost * host;
-   enet_uint16   outgoingPeerID;
-   enet_uint16   incomingPeerID;
+   enet_uint32   outgoingPeerID;
+   enet_uint32   incomingPeerID;
    enet_uint32   connectID;
    enet_uint8    outgoingSessionID;
    enet_uint8    incomingSessionID;
@@ -363,7 +363,7 @@ typedef struct _ENetHost
    ENetList             dispatchQueue;
    int                  continueSending;
    size_t               packetSize;
-   enet_uint16          headerFlags;
+   enet_uint32          headerFlags;
    ENetProtocol         commands [ENET_PROTOCOL_MAXIMUM_PACKET_COMMANDS];
    size_t               commandCount;
    ENetBuffer           buffers [ENET_BUFFER_MAXIMUM];

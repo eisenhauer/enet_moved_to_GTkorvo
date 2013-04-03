@@ -232,7 +232,7 @@ enet_host_connect (ENetHost * host, const ENetAddress * address, size_t channelC
         
     command.header.command = ENET_PROTOCOL_COMMAND_CONNECT | ENET_PROTOCOL_COMMAND_FLAG_ACKNOWLEDGE;
     command.header.channelID = 0xFF;
-    command.connect.outgoingPeerID = ENET_HOST_TO_NET_16 (currentPeer -> incomingPeerID);
+    command.connect.outgoingPeerID = ENET_HOST_TO_NET_32 (currentPeer -> incomingPeerID);
     command.connect.incomingSessionID = currentPeer -> incomingSessionID;
     command.connect.outgoingSessionID = currentPeer -> outgoingSessionID;
     command.connect.mtu = ENET_HOST_TO_NET_32 (currentPeer -> mtu);
