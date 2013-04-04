@@ -1911,3 +1911,8 @@ enet_host_service (ENetHost * host, ENetEvent * event, enet_uint32 timeout)
     return 0; 
 }
 
+int
+enet_host_get_sock_fd (ENetHost *host)
+{
+    return host -> socket;
+}
