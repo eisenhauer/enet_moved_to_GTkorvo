@@ -269,6 +269,7 @@ enet_protocol_handle_connect (ENetHost * host, ENetProtocolHeader * header, ENet
     size_t channelCount;
     ENetPeer * currentPeer;
     ENetProtocol verifyCommand;
+    int i;
 
     channelCount = ENET_NET_TO_HOST_32 (command -> connect.channelCount);
 
@@ -276,10 +277,10 @@ enet_protocol_handle_connect (ENetHost * host, ENetProtocolHeader * header, ENet
         channelCount > ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT)
       return NULL;
 
-    for (currentPeer = host -> peers;
-         currentPeer < & host -> peers [host -> peerCount];
-         ++ currentPeer)
+    for (i = 0; i < host -> peerCount; i++ ) 
     {
+	currentPeer = host -> peer_list[i];
+
         if (currentPeer -> state != ENET_PEER_STATE_DISCONNECTED &&
             currentPeer -> address.host == host -> receivedAddress.host &&
             currentPeer -> address.port == host -> receivedAddress.port &&
@@ -287,16 +288,36 @@ enet_protocol_handle_connect (ENetHost * host, ENetProtocolHeader * header, ENet
           return NULL;
     }
 
-    for (currentPeer = host -> peers;
-         currentPeer < & host -> peers [host -> peerCount];
-         ++ currentPeer)
+    for (i = 0; i < host -> peerCount; i++ )
     {
+	currentPeer = host -> peer_list[i];
+
         if (currentPeer -> state == ENET_PEER_STATE_DISCONNECTED)
           break;
     }
 
-    if (currentPeer >= & host -> peers [host -> peerCount])
-      return NULL;
+    if (i >= host -> peerCount)
+    {
+	if (i >= ENET_PROTOCOL_MAXIMUM_PEER_ID) 
+	    return NULL;
+	host -> peerCount++;
+	host -> peer_list[i] = enet_malloc (sizeof (ENetPeer));
+	memset (host -> peer_list[i], 0, sizeof (ENetPeer));
+	currentPeer = host->peer_list[i];
+	currentPeer -> host = host;
+	currentPeer -> incomingPeerID = i;
+	currentPeer -> outgoingSessionID = currentPeer -> incomingSessionID = 0xFF;
+	currentPeer -> data = NULL;
+
+	enet_list_clear (& currentPeer -> acknowledgements);
+	enet_list_clear (& currentPeer -> sentReliableCommands);
+	enet_list_clear (& currentPeer -> sentUnreliableCommands);
+	enet_list_clear (& currentPeer -> outgoingReliableCommands);
+	enet_list_clear (& currentPeer -> outgoingUnreliableCommands);
+	enet_list_clear (& currentPeer -> dispatchedCommands);
+
+	enet_peer_reset (currentPeer);
+    }
 
     if (channelCount > host -> channelLimit)
       channelCount = host -> channelLimit;
@@ -1005,7 +1026,7 @@ enet_protocol_handle_incoming_commands (ENetHost * host, ENetEvent * event)
       return 0;
     else
     {
-       peer = & host -> peers [peerID];
+       peer = host -> peer_list [peerID];
 
        if (peer -> state == ENET_PEER_STATE_DISCONNECTED ||
            peer -> state == ENET_PEER_STATE_ZOMBIE ||
@@ -1592,15 +1613,15 @@ enet_protocol_send_outgoing_commands (ENetHost * host, ENetEvent * event, int ch
     ENetPeer * currentPeer;
     int sentLength;
     size_t shouldCompress = 0;
- 
+    int i;
+
     host -> continueSending = 1;
 
     while (host -> continueSending)
     for (host -> continueSending = 0,
-           currentPeer = host -> peers;
-         currentPeer < & host -> peers [host -> peerCount];
-         ++ currentPeer)
+	     i = 0; i < host -> peerCount; i++ )
     {
+	currentPeer = host -> peer_list[i];
         if (currentPeer -> state == ENET_PEER_STATE_DISCONNECTED ||
             currentPeer -> state == ENET_PEER_STATE_ZOMBIE)
           continue;

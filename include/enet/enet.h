@@ -356,7 +356,7 @@ typedef struct _ENetHost
    enet_uint32          mtu;
    enet_uint32          randomSeed;
    int                  recalculateBandwidthLimits;
-   ENetPeer *           peers;                       /**< array of peers allocated for this host */
+   ENetPeer **           peer_list;                       /**< array of peers allocated for this host */
    size_t               peerCount;                   /**< number of peers allocated for this host */
    size_t               channelLimit;                /**< maximum number of channels allowed for connected peers */
    enet_uint32          serviceTime;
