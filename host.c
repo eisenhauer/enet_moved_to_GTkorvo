@@ -109,6 +109,9 @@ enet_host_create (const ENetAddress * address, size_t peerCount, size_t channelL
     host -> totalReceivedData = 0;
     host -> totalReceivedPackets = 0;
 
+    host -> connectedPeers = 0;
+    host -> bandwidthLimitedPeers = 0;
+
     host -> compressor.context = NULL;
     host -> compressor.compress = NULL;
     host -> compressor.decompress = NULL;
@@ -358,13 +361,12 @@ enet_host_bandwidth_throttle (ENetHost * host)
 {
     enet_uint32 timeCurrent = enet_time_get (),
            elapsedTime = timeCurrent - host -> bandwidthThrottleEpoch,
-           peersTotal = 0,
-           dataTotal = 0,
-           peersRemaining,
-           bandwidth,
+           peersRemaining = (enet_uint32) host -> connectedPeers,
+           dataTotal = ~0,
+           bandwidth = ~0,
            throttle = 0,
            bandwidthLimit = 0;
-    int needsAdjustment;
+    int needsAdjustment = host -> bandwidthLimitedPeers > 0 ? 1 : 0;
     ENetPeer * peer;
     ENetProtocol command;
     int i;
@@ -372,32 +374,32 @@ enet_host_bandwidth_throttle (ENetHost * host)
     if (elapsedTime < ENET_HOST_BANDWIDTH_THROTTLE_INTERVAL)
       return;
 
-    for (i = 0; i < host -> peerCount; i++ )
-    {
-	peer = host -> peer_list[i];
-        if (peer -> state != ENET_PEER_STATE_CONNECTED && peer -> state != ENET_PEER_STATE_DISCONNECT_LATER)
-          continue;
+    host -> bandwidthThrottleEpoch = timeCurrent;
 
-        ++ peersTotal;
-        dataTotal += peer -> outgoingDataTotal;
-    }
-
-    if (peersTotal == 0)
+    if (peersRemaining == 0)
       return;
 
-    peersRemaining = peersTotal;
-    needsAdjustment = 1;
+    if (host -> outgoingBandwidth != 0)
+    {
+        dataTotal = 0;
+        bandwidth = (host -> outgoingBandwidth * elapsedTime) / 1000;
 
-    if (host -> outgoingBandwidth == 0)
-      bandwidth = ~0;
-    else
-      bandwidth = (host -> outgoingBandwidth * elapsedTime) / 1000;
+	for (i = 0; i < host -> peerCount; i++ )
+        {
+	    peer = host -> peer_list[i];
+
+            if (peer -> state != ENET_PEER_STATE_CONNECTED && peer -> state != ENET_PEER_STATE_DISCONNECT_LATER)
+              continue;
+
+            dataTotal += peer -> outgoingDataTotal;
+        }
+    }
 
     while (peersRemaining > 0 && needsAdjustment != 0)
     {
         needsAdjustment = 0;
         
-        if (dataTotal < bandwidth)
+        if (dataTotal <= bandwidth)
           throttle = ENET_PEER_PACKET_THROTTLE_SCALE;
         else
           throttle = (bandwidth * ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
@@ -427,7 +429,9 @@ enet_host_bandwidth_throttle (ENetHost * host)
 
             peer -> outgoingBandwidthThrottleEpoch = timeCurrent;
 
-            
+            peer -> incomingDataTotal = 0;
+            peer -> outgoingDataTotal = 0;
+
             needsAdjustment = 1;
             -- peersRemaining;
             bandwidth -= peerBandwidth;
@@ -436,25 +440,35 @@ enet_host_bandwidth_throttle (ENetHost * host)
     }
 
     if (peersRemaining > 0)
-    for (i = 0; i < host -> peerCount; i++ )
     {
-	peer = host -> peer_list[i];
+        if (dataTotal <= bandwidth)
+          throttle = ENET_PEER_PACKET_THROTTLE_SCALE;
+        else
+          throttle = (bandwidth * ENET_PEER_PACKET_THROTTLE_SCALE) / dataTotal;
 
-        if ((peer -> state != ENET_PEER_STATE_CONNECTED && peer -> state != ENET_PEER_STATE_DISCONNECT_LATER) ||
-            peer -> outgoingBandwidthThrottleEpoch == timeCurrent)
-          continue;
+	for (i = 0; i < host -> peerCount; i++ )
+	{
+	    peer = host -> peer_list[i];
 
-        peer -> packetThrottleLimit = throttle;
+            if ((peer -> state != ENET_PEER_STATE_CONNECTED && peer -> state != ENET_PEER_STATE_DISCONNECT_LATER) ||
+		peer -> outgoingBandwidthThrottleEpoch == timeCurrent)
+	      continue;
 
-        if (peer -> packetThrottle > peer -> packetThrottleLimit)
-          peer -> packetThrottle = peer -> packetThrottleLimit;
+	    peer -> packetThrottleLimit = throttle;
+
+	    if (peer -> packetThrottle > peer -> packetThrottleLimit)
+		peer -> packetThrottle = peer -> packetThrottleLimit;
+
+            peer -> incomingDataTotal = 0;
+            peer -> outgoingDataTotal = 0;
+	}
     }
-    
+
     if (host -> recalculateBandwidthLimits)
     {
        host -> recalculateBandwidthLimits = 0;
 
-       peersRemaining = peersTotal;
+       peersRemaining = (enet_uint32) host -> connectedPeers;
        bandwidth = host -> incomingBandwidth;
        needsAdjustment = 1;
 
@@ -503,16 +517,6 @@ enet_host_bandwidth_throttle (ENetHost * host)
 
            enet_peer_queue_outgoing_command (peer, & command, NULL, 0, 0);
        } 
-    }
-
-    host -> bandwidthThrottleEpoch = timeCurrent;
-
-    for (i = 0; i < host -> peerCount; i++ )
-    {
-	peer = host -> peer_list[i];
-
-        peer -> incomingDataTotal = 0;
-        peer -> outgoingDataTotal = 0;
     }
 }
     

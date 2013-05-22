@@ -27,6 +27,9 @@ extern "C"
 #define ENET_VERSION_MINOR 3
 #define ENET_VERSION_PATCH 7
 #define ENET_VERSION_CREATE(major, minor, patch) (((major)<<16) | ((minor)<<8) | (patch))
+#define ENET_VERSION_GET_MAJOR(version) (((version)>>16)&0xFF)
+#define ENET_VERSION_GET_MINOR(version) (((version)>>8)&0xFF)
+#define ENET_VERSION_GET_PATCH(version) ((version)&0xFF)
 #define ENET_VERSION ENET_VERSION_CREATE(ENET_VERSION_MAJOR, ENET_VERSION_MINOR, ENET_VERSION_PATCH)
 
 typedef enet_uint32 ENetVersion;
@@ -43,9 +46,10 @@ typedef enum _ENetSocketType
 
 typedef enum _ENetSocketWait
 {
-   ENET_SOCKET_WAIT_NONE    = 0,
-   ENET_SOCKET_WAIT_SEND    = (1 << 0),
-   ENET_SOCKET_WAIT_RECEIVE = (1 << 1)
+   ENET_SOCKET_WAIT_NONE      = 0,
+   ENET_SOCKET_WAIT_SEND      = (1 << 0),
+   ENET_SOCKET_WAIT_RECEIVE   = (1 << 1),
+   ENET_SOCKET_WAIT_INTERRUPT = (1 << 2)
 } ENetSocketWait;
 
 typedef enum _ENetSocketOption
@@ -379,6 +383,8 @@ typedef struct _ENetHost
    enet_uint32          totalReceivedData;           /**< total data received, user should reset to 0 as needed to prevent overflow */
    enet_uint32          totalReceivedPackets;        /**< total UDP packets received, user should reset to 0 as needed to prevent overflow */
    ENetInterceptCallback intercept;                  /**< callback the user can set to intercept received raw UDP packets */
+   size_t               connectedPeers;
+   size_t               bandwidthLimitedPeers;
 } ENetHost;
 
 /**
@@ -451,6 +457,12 @@ ENET_API int enet_initialize_with_callbacks (ENetVersion version, const ENetCall
   initialized ENet exits.
 */
 ENET_API void enet_deinitialize (void);
+
+/**
+  Gives the linked version of the ENet library.
+  @returns the version number 
+*/
+ENET_API ENetVersion enet_linked_version (void);
 
 /** @} */
 
@@ -557,6 +569,8 @@ extern ENetIncomingCommand * enet_peer_queue_incoming_command (ENetPeer *, const
 extern ENetAcknowledgement * enet_peer_queue_acknowledgement (ENetPeer *, const ENetProtocol *, enet_uint16);
 extern void                  enet_peer_dispatch_incoming_unreliable_commands (ENetPeer *, ENetChannel *);
 extern void                  enet_peer_dispatch_incoming_reliable_commands (ENetPeer *, ENetChannel *);
+extern void                  enet_peer_on_connect (ENetPeer *);
+extern void                  enet_peer_on_disconnect (ENetPeer *);
 
 ENET_API void * enet_range_coder_create (void);
 ENET_API void   enet_range_coder_destroy (void *);
