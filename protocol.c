@@ -329,7 +329,7 @@ enet_protocol_handle_connect (ENetHost * host, ENetProtocolHeader * header, ENet
 	peer = host->peer_list[i];
 	peer -> host = host;
 	peer -> incomingPeerID = i;
-	peer -> outgoingSessionID = currentPeer -> incomingSessionID = 0xFF;
+	peer -> outgoingSessionID = peer -> incomingSessionID = 0xFF;
 	peer -> data = NULL;
 
 	enet_list_clear (& peer -> acknowledgements);
@@ -339,7 +339,7 @@ enet_protocol_handle_connect (ENetHost * host, ENetProtocolHeader * header, ENet
 	enet_list_clear (& peer -> outgoingUnreliableCommands);
 	enet_list_clear (& peer -> dispatchedCommands);
 
-	enet_peer_reset (currentPeer);
+	enet_peer_reset (peer);
     }
 
     if (peer == NULL || duplicatePeers >= host -> duplicatePeers)
