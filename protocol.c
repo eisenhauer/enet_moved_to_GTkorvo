@@ -1226,7 +1226,9 @@ commandError:
 static int
 enet_protocol_receive_incoming_commands (ENetHost * host, ENetEvent * event)
 {
-    for (;;)
+    int packets;
+
+    for (packets = 0; packets < 256; ++ packets)
     {
        int receivedLength;
        ENetBuffer buffer;
