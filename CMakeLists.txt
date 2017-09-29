@@ -68,3 +68,6 @@ add_library(enet STATIC
         unix.c
         win32.c
     )
+
+INSTALL(TARGETS enet
+  LIBRARY DESTINATION lib)
